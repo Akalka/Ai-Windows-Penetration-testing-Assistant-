@@ -1,6 +1,6 @@
 # 🛡️ AI-Powered Windows Penetration Testing Assistant
 
-An automated penetration testing assistant for Windows targets that combines fast port scanning, local CVE matching, and on-device AI analysis to generate professional PDF reports — all without internet access or commercial tools.
+An automated penetration testing assistant for Windows targets that combines fast port scanning, local CVE matching, and on-device AI analysis to generate professional PDF reports all without internet access or commercial tools.
 
 ---
 
@@ -12,7 +12,7 @@ This tool automates the full Windows vulnerability assessment pipeline:
 RustScan → Nmap → CVE Matching (RAG) → AI Analysis → PDF Report
 ```
 
-The AI component uses a **Retrieval-Augmented Generation (RAG)** architecture. A local CVE dataset is searched first, and the matching results are injected into the AI prompt — so the model analyses only real, dataset-backed CVEs rather than hallucinating from general knowledge.
+The AI component uses a **Retrieval-Augmented Generation (RAG)** architecture. A local CVE dataset is searched first, and the matching results are injected into the AI prompt so the model analyses only real, dataset backed CVEs rather than hallucinating from general knowledge.
 
 The tool is **fully customisable**:
 - 🔄 Build your own CVE dataset using your own free NIST API key
