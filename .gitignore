@@ -1,0 +1,11 @@
+scans/
+output/
+*.xml
+*.gnmap
+*.nmap
+__pycache__/
+*.pyc
+*.pdf
+*.log
+.env
+data/windows_cves_backup.csv
