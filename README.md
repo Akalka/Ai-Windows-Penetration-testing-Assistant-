@@ -1,2 +1,332 @@
-# AI-Windows-Penetration-testing-Assistantant
-AI-powered Windows penetration testing assistant — RAG, local LLM, automated CVE matching
+# 🛡️ AI-Powered Windows Penetration Testing Assistant
+
+An automated penetration testing assistant for Windows targets that combines fast port scanning, local CVE matching, and on-device AI analysis to generate professional PDF reports — all without internet access or commercial tools.
+
+---
+
+## 🎯 Overview
+
+This tool automates the full Windows vulnerability assessment pipeline:
+
+```
+RustScan → Nmap → CVE Matching (RAG) → AI Analysis → PDF Report
+```
+
+The AI component uses a **Retrieval-Augmented Generation (RAG)** architecture. A local CVE dataset is searched first, and the matching results are injected into the AI prompt — so the model analyses only real, dataset-backed CVEs rather than hallucinating from general knowledge.
+
+The tool is **fully customisable**:
+- 🔄 Build your own CVE dataset using your own free NIST API key
+- 🤖 Swap in a more powerful AI model if your hardware supports it
+- ⚙️ The RAG pipeline works identically regardless of which model you choose
+
+---
+
+## ✨ Features
+
+- ⚡ **Fast scanning** with RustScan (2 sec) + deep Nmap NSE vuln scripts
+- 🛡️ **1,871 CVE dataset** from NIST NVD, CPE-filtered for genuine Windows OS CVEs only
+- 🤖 **Local RAG AI** via Ollama — no data leaves your machine
+- ✅ **Confirmed vulnerability detection** via Nmap scripts (EternalBlue, BlueKeep etc.)
+- 📊 **Balanced severity reporting** — 3 CRITICAL + 3 HIGH + 2 MEDIUM + 2 LOW per scan
+- 📄 **Professional PDF reports** — 8 sections including risk score and remediation
+- 🎨 **HTB dark theme GUI** built with CustomTkinter
+- 🔧 **Fully customisable** — your own dataset, your own model, your own config
+
+---
+
+## 🧱 Architecture
+
+```
+User Input (Target IP via GUI)
+        ↓
+RustScan — fast port discovery (26 Windows ports)
+        ↓
+Nmap — deep scan + vuln scripts
+Saves: scan.gnmap + scan.nmap + scan.xml
+        ↓
+Parser — reads both files
+  ├── .gnmap → ports, services, OS, hostname
+  └── .nmap  → confirmed vulns (EternalBlue, BlueKeep etc.)
+        ↓
+CVE Engine (RAG — Retrieval)
+  ├── Searches local windows_cves.csv (1,871 CVEs)
+  ├── Priority CVEs always checked (EternalBlue, BlueKeep)
+  ├── False positive blacklist (Tailscale, Samba etc.)
+  └── Patch awareness: pre-2020 = Likely Patched
+        ↓
+AI Analysis (RAG — Generation)
+  └── Model receives ONLY injected CVEs — no outside knowledge
+        ↓
+PDF Report (ReportLab)
+  └── Cover · TOC · Executive Summary · Scan Info · Open Ports
+      CVE Findings · AI Analysis · Remediation · Risk Score · Disclaimer
+```
+
+---
+
+## 🤖 AI Model — Optimised for Low-End Hardware
+
+This project was developed and tested on an **i5 10th Gen, 16GB RAM, no GPU** machine. The default model `Qwen2.5:3b` was chosen specifically because it runs well on CPU-only, low-spec hardware.
+
+**The RAG pipeline is model-agnostic** — you can drop in any Ollama-compatible model and the CVE retrieval and prompt injection works exactly the same way. Only the depth of reasoning changes.
+
+### Model Recommendations by Hardware
+
+| Hardware | Recommended Model | Ollama Pull Command | Notes |
+|---|---|---|---|
+| Low-end · CPU only · 8GB RAM | `qwen2.5:3b` | `ollama pull qwen2.5:3b` | ✅ Default — tested, stable |
+| Mid-range · 16GB RAM / basic GPU | `qwen2.5:7b` | `ollama pull qwen2.5:7b` | Better reasoning, still fast |
+| High-end · GPU · 16GB+ VRAM | `qwen2.5:14b` | `ollama pull qwen2.5:14b` | Strong analysis quality |
+| High-end · GPU · 24GB+ VRAM | `deepseek-r1:14b` | `ollama pull deepseek-r1:14b` | Reasoning model — excellent output |
+| High-end · GPU · 32GB+ VRAM | `deepseek-r1:32b` | `ollama pull deepseek-r1:32b` | Best possible quality |
+
+After pulling your chosen model, update one line in `src/config.py`:
+
+```python
+OLLAMA_MODEL = "deepseek-r1:14b"   # or whichever model you chose
+```
+
+The rest of the pipeline — RAG retrieval, CVE injection, PDF generation — is completely unchanged.
+
+---
+
+## 🗃️ CVE Dataset — Build Your Own
+
+The included dataset (`data/windows_cves.csv`) contains **1,871 CPE-filtered Windows CVEs** built using a free NIST API key. **You can rebuild this with your own key** at any time, which means:
+
+- You get the most up-to-date CVEs at the time of your setup
+- You are fully independent — not relying on any key bundled with the project
+- You can customise the date range or CPE filter in `build_dataset.py` if needed
+
+### Get a Free NIST API Key (instant, no cost)
+
+1. Go to [nvd.nist.gov/developers/request-an-api-key](https://nvd.nist.gov/developers/request-an-api-key)
+2. Enter your email address
+3. Key arrives instantly — no account, no payment required
+
+### Build the Dataset
+
+```python
+# In build_dataset.py, set your key at the top:
+NIST_API_KEY = "your-key-here"
+```
+
+```bash
+python build_dataset.py
+# Takes 20–30 minutes
+# Downloads all Windows CVEs (2015–present) filtered by CPE
+```
+
+### Monthly Updates
+
+```bash
+python updater.py
+```
+
+Fetches CVEs published in the last 30 days and appends them to the existing dataset. Run once a month to stay current.
+
+---
+
+## 📊 Included Dataset Details
+
+| Property | Value |
+|---|---|
+| Source | NIST NVD API |
+| Total CVEs | 1,871 |
+| CPE Filter | `cpe:2.3:o:microsoft:windows_*` |
+| Date Range | 2015 – present |
+| CRITICAL | 97 |
+| HIGH | 1,177 |
+| MEDIUM | 542 |
+| LOW | 53 |
+
+> **Why 1,871 and not more?** An earlier version had 4,811 CVEs but included many false positives from third-party software running on Windows. CPE-based filtering reduced it to 1,871 — smaller but 100% accurate, zero false positives.
+
+### Priority CVEs (always checked first)
+
+| CVE | Name | Service | Impact |
+|---|---|---|---|
+| CVE-2017-0144 | EternalBlue | SMB | RCE — WannaCry (CVSS 8.8) |
+| CVE-2017-0145 | EternalRomance | SMB | RCE |
+| CVE-2020-0796 | SMBGhost | SMB | RCE (CVSS 10.0) |
+| CVE-2019-0708 | BlueKeep | RDP | Unauthenticated RCE |
+| CVE-2021-34527 | PrintNightmare | Print Spooler | SYSTEM access |
+| CVE-2020-1472 | Zerologon | LDAP | Instant Domain Admin (CVSS 10.0) |
+
+---
+
+## 🗂️ Project Structure
+
+```
+ai-windows-pentest-assistant/
+├── build_dataset.py          Build CVE dataset from NIST NVD API
+├── updater.py                Monthly dataset updater
+├── requirements.txt          Python dependencies
+├── src/
+│   ├── config.py             ⚠️ Change your settings here
+│   ├── scanner.py            RustScan + Nmap (-oA saves all formats)
+│   ├── parser.py             Reads .gnmap + .nmap, extracts services + confirmed vulns
+│   ├── cve_engine.py         RAG CVE retrieval — priority CVEs, dedup, blacklist
+│   ├── ai_analysis.py        Ollama API — RAG prompt injection
+│   ├── report_generator.py   PDF report generator (ReportLab)
+│   └── gui.py                HTB dark theme GUI (CustomTkinter)
+├── data/
+│   └── windows_cves.csv      1,871 CPE-filtered Windows CVEs
+├── scans/                    Scan output files (.gnmap · .nmap · .xml)
+└── output/                   Generated PDF reports
+```
+
+---
+
+## ⚙️ Requirements
+
+### Kali Linux (Attack Machine)
+- Python 3.x
+- RustScan — `sudo apt install rustscan`
+- Nmap — `sudo apt install nmap`
+- Minimum 4GB RAM
+
+### Windows Machine (AI Server)
+- Windows 10 or 11
+- [Ollama](https://ollama.com) installed
+- Your chosen model downloaded (see table above)
+- Minimum 8GB RAM (more for larger models)
+- Both machines on the same network
+
+### Python Libraries
+```bash
+pip install customtkinter pandas requests reportlab tqdm --break-system-packages
+```
+
+---
+
+## 🚀 Setup & Usage
+
+### 1 — Start Ollama on Windows
+
+```powershell
+$env:OLLAMA_HOST = "0.0.0.0"
+ollama serve
+```
+
+> Do this every time Windows restarts. The default `ollama serve` only allows localhost — `OLLAMA_HOST=0.0.0.0` lets Kali connect over the network.
+
+If Kali can't connect, add a Windows Firewall inbound rule: **TCP port 11434 → Allow**.
+
+Test from Kali:
+```bash
+curl http://YOUR_WINDOWS_IP:11434/api/tags
+# Should return a JSON list of downloaded models
+```
+
+### 2 — Configure `src/config.py`
+
+```python
+OLLAMA_HOST  = "http://YOUR_WINDOWS_IP:11434"
+OLLAMA_MODEL = "qwen2.5:3b"   # change to your chosen model
+```
+
+### 3 — Build the CVE Dataset (first time only)
+
+```bash
+python build_dataset.py   # 20–30 minutes
+```
+
+Skip this if you're using the included `data/windows_cves.csv`.
+
+### 4 — Launch the GUI
+
+```bash
+cd ai-windows-pentest-assistant
+sudo python3 src/gui.py
+```
+
+> `sudo` required — Nmap needs root for SYN scanning.
+
+### 5 — Run a Scan
+
+- Enter target IP → click **START SCAN**
+- Watch live output in the bottom panel
+- Full pipeline takes 5–10 minutes
+- PDF report saved to `output/` automatically
+
+**For TryHackMe / HackTheBox targets:**
+```bash
+sudo openvpn your_config.ovpn   # connect VPN first
+# then enter the VPN target IP in the GUI
+```
+
+---
+
+## 📄 PDF Report Sections
+
+1. Cover Page
+2. Table of Contents
+3. Executive Summary
+4. Scan Information
+5. Open Ports & Services
+6. CVE Findings — with Patch Status column: `CONFIRMED` / `Likely Patched` / `May be Unpatched`
+7. AI Analysis
+8. Remediation Recommendations
+9. Risk Score
+10. Legal Disclaimer
+
+Confirmed vulnerable rows are highlighted red. Risk score is weighted from post-2020 CVEs, with confirmed vulns ranked highest.
+
+---
+
+## 🧪 Test Results
+
+| Target | OS | Risk Score | Key Finding |
+|---|---|---|---|
+| 172.20.10.5 | Windows 11 (patched) | 6.6 / 10 HIGH | No confirmed vulns |
+| 10.48.165.135 | Windows 7 (Blue machine) | 7.2 / 10 HIGH | EternalBlue CONFIRMED ✅ |
+
+---
+
+## 🔧 Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| Segmentation fault on launch | Use `sudo python3 src/gui.py` |
+| AI analysis connection error | Check Ollama is running with `OLLAMA_HOST=0.0.0.0` · check firewall port 11434 · verify IP in `config.py` |
+| No CVEs shown after scan | Check `data/windows_cves.csv` exists — run `python build_dataset.py` if missing |
+| Scan output empty | Run with `sudo` — Nmap needs root for SYN scan |
+| NIST API 403 error | Key expired — get a new free key at nvd.nist.gov |
+| EternalBlue not showing as CONFIRMED | Check both `.gnmap` AND `.nmap` exist in `scans/` — scanner must use `-oA` flag not `-oG` |
+| Wrong risk score in report | Ensure `report_generator.py` reads `risk_summary.get("risk_score")` — not recalculated independently |
+
+---
+
+## 🛠️ Tech Stack
+
+| Component | Technology |
+|---|---|
+| Language | Python 3 |
+| Fast Scanner | RustScan |
+| Deep Scanner | Nmap + NSE Scripts |
+| GUI | CustomTkinter |
+| AI Model | Qwen2.5:3b (default) / any Ollama model |
+| AI Platform | Ollama (self-hosted) |
+| AI Architecture | RAG (Retrieval-Augmented Generation) |
+| Dataset Source | NIST NVD API |
+| PDF Generator | ReportLab |
+| Data Processing | Pandas |
+| OS | Kali Linux |
+
+---
+
+## ⚠️ Legal Disclaimer
+
+This tool is for **educational purposes and authorised penetration testing only**. Only use against systems you own or have explicit written permission to test. Unauthorised use is illegal. AI analysis is generated by a local language model and should be reviewed by a qualified security professional before acting on any findings.
+
+---
+
+## 📚 References
+
+- [NIST NVD](https://nvd.nist.gov/) — CVE dataset source
+- [NIST API Key](https://nvd.nist.gov/developers/request-an-api-key) — free, instant
+- [Ollama](https://ollama.com) — local LLM inference
+- [RustScan](https://github.com/RustScan/RustScan) — fast port scanner
+- [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) — GUI framework
+- [Hack The Box](https://www.hackthebox.com/) — lab environment for testing
